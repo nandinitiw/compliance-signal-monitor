@@ -1,0 +1,103 @@
+flowchart TB
+    %% ---------------- Ingestion ----------------
+    subgraph ING["Ingestion & Scheduling"]
+        CRON["Scheduled trigger<br/>(daily cron)"]
+        SCRAPE["Source watcher<br/>(fetch + parse public work-plan site)"]
+        DIFF["Change detector<br/>(new / updated items)"]
+        TRIAGE["Triage analyzer (LLM)<br/>relevance score · priority · tags"]
+        CRON --> SCRAPE --> DIFF --> TRIAGE
+    end
+
+    %% ---------------- Signal store ----------------
+    SIGNAL[("Signal store")]
+    TRIAGE --> SIGNAL
+
+    %% ---------------- Rule-generation pipeline ----------------
+    subgraph PIPE["Multi-Agent Rule-Generation Pipeline (orchestrated)"]
+        direction TB
+        ORCH["Orchestrator<br/>(runs stages · handles budget/errors)"]
+        A1["1 · Concern Interpreter<br/>extracts the compliance concern"]
+        GATE{"Applicable?<br/>(is this a billing-rule concern)"}
+        A2["2 · Reference-Coding agent<br/>looks up official codes via tools"]
+        GROUND{"All codes<br/>grounded?"}
+        A3["3 · Schema-Mapping agent<br/>maps concern to real data fields"]
+        A4["4 · Rule-Authoring agent<br/>drafts the detection query"]
+        VAL["5 · Deterministic SQL Validator<br/>(AST parse · unknown field/table · lint)"]
+        A5["6 · Reviewer agent (Critic)<br/>carries validator findings + logic review"]
+        PACK["7 · Packager<br/>assembles audit trail + verdict"]
+
+        ORCH --> A1 --> GATE
+        GATE -- "no" --> NA["Outcome: Not applicable<br/>(no rule authored)"]
+        GATE -- "yes" --> A2 --> GROUND
+        GROUND -- "no" --> ESC1["Flag: needs review"]
+        GROUND -- "yes" --> A3 --> A4 --> VAL --> A5 --> PACK
+    end
+
+    SIGNAL --> ORCH
+
+    %% ---------------- Confidence routing ----------------
+    ROUTE{"Verdict routing"}
+    PACK --> ROUTE
+    ESC1 --> ROUTE
+    ROUTE -- "clean" --> READY["Outcome: Ready draft"]
+    ROUTE -- "issues found" --> REVIEW["Outcome: Needs human review<br/>(with reviewer notes)"]
+
+    %% ---------------- Persistence / audit ----------------
+    subgraph DATA["Persistence & Audit Trail (Postgres / Supabase)"]
+        RULES[("Draft rules<br/>+ full reasoning trail")]
+        AUDIT[("Execution audit log<br/>per run · per LLM call · per tool call<br/>tokens · cost · inputs/outputs")]
+        RUNLOG[("Ingestion run history")]
+    end
+
+    READY --> RULES
+    REVIEW --> RULES
+    NA --> RULES
+    ORCH -. "logs every step" .-> AUDIT
+    A2 -. "logs tool lookups" .-> AUDIT
+    SCRAPE -. "run status" .-> RUNLOG
+
+    %% ---------------- Review dashboard ----------------
+    subgraph UI["Reviewer Dashboard (auth-gated web app)"]
+        OVR["Overview & counts"]
+        SIGV["Signals view"]
+        RULV["Rules review & approve"]
+        DIGV["Digest view"]
+        TRACE["Agent trace viewer<br/>(step-by-step 'thinking')"]
+    end
+
+    SIGNAL --> SIGV
+    RULES --> RULV
+    RULES --> DIGV
+    SIGNAL --> OVR
+    AUDIT --> TRACE
+
+    %% ---------------- Notifications ----------------
+    NOTIFY["Notification service<br/>(alerts + weekly digest email)"]
+    SIGNAL --> NOTIFY
+    RULES --> NOTIFY
+    NOTIFY --> REVIEWERS(["Compliance reviewers"])
+    RULV --> REVIEWERS
+    TRACE --> REVIEWERS
+
+    %% ---------------- Eval side layer ----------------
+    subgraph EVAL["Quality Evaluation Harness (offline / side layer)"]
+        GOLD[("Golden reference set")]
+        SCORER["Pipeline scorer<br/>(re-runs pipeline · rubric per item)"]
+        ESTORE[("Eval results store")]
+        EVIEW["Eval dashboard<br/>(scores + flagged-issue review)"]
+        GOLD --> SCORER --> ESTORE --> EVIEW
+    end
+
+    SCORER -. "reads traces" .-> AUDIT
+    SIGNAL -. "sampled as input" .-> SCORER
+    EVIEW --> REVIEWERS
+
+    %% ---------------- Styling ----------------
+    classDef store fill:#e8eef7,stroke:#4a6fa5,color:#1a2b45;
+    classDef agent fill:#eaf5ec,stroke:#4a8a5c,color:#1a3a25;
+    classDef decision fill:#fbf3e2,stroke:#b5892a,color:#4a3610;
+    classDef outcome fill:#f3e8f2,stroke:#8a4a80,color:#3a1a35;
+    class SIGNAL,RULES,AUDIT,RUNLOG,GOLD,ESTORE store;
+    class ORCH,A1,A2,A3,A4,A5,PACK,VAL,TRIAGE,SCORER agent;
+    class GATE,GROUND,ROUTE decision;
+    class NA,READY,REVIEW,ESC1 outcome;
