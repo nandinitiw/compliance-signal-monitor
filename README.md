@@ -4,7 +4,7 @@
 
 > **About this repository.** These are the **design and architecture artifacts** for a
 > system I built during an engineering role at a healthcare-compliance startup. It
-> contains documentation, diagrams, and a presentation only — **no proprietary source
+> contains documentation, diagrams, and a presentation only. ** No proprietary source
 > code, data, schemas, or client content** is included. Everything here is sanitized and
 > describes the system at the level of components and data flow.
 
@@ -12,7 +12,7 @@
 
 ## The problem
 
-Compliance teams have to monitor a public healthcare-compliance work-plan source, decide
+Compliance teams have to monitor a public governmental healthcare-compliance work-plan source, decide
 which updates actually matter, and translate each relevant one into a concrete detection
 rule that can run against claims data. Done by hand, this is slow, easy to fall behind on,
 and hard to audit. This system automates the funnel end to end while keeping a human in
