@@ -6,7 +6,7 @@ I built it as a software engineer at a Stanford StartX-accelerated healthcare AI
 
 ### Results
 
-- **Eval score raised from ~58 to ~87** on a 10-item golden set, after I traced a quality drop to false positives in the SQL validator and fixed them.
+- **Eval score raised from ~58 to ~87** on a 100-item golden set, after I traced a quality drop to false positives in the SQL validator and fixed them.
 - **Human-review rate cut from ~52% to ~24%.** Most of the earlier flags were validator false alarms, not real problems with the rules.
 - **About 90 seconds and 11 cents per signal**, end to end through all seven stages.
 
